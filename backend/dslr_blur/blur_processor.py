@@ -115,13 +115,17 @@ class DSLRBlurProcessor:
         subject_protection: float (0 - 100) -> Protects original fine details.
         """
         # Expand alpha to 3 channels for RGB broadcasting
-        alpha_3d = np.expand_dims(alpha, axis=2)
+        alpha_3d = np.expand_dims(alpha, axis=2).copy()
         
-        # Subject Protection clamps the minimum alpha of subject pixels to prevent them blurring
+        # Smart Subject Protection:
+        # Protects the solid core of the subject (alpha > 0.7), but NEVER clamps the feathered edge
+        # (alpha <= 0.7). This ensures boundaries fade smoothly to 0.0, completely eliminating
+        # the ugly "cut-out sticker" halo of unblurred background/grass around the subject.
         if subject_protection > 0:
             protection_factor = subject_protection / 100.0
-            mask_fg = alpha > 0.05
-            alpha_3d[mask_fg] = np.maximum(alpha_3d[mask_fg], protection_factor)
+            # Only apply protection clamping inside the subject core
+            mask_core = alpha > 0.70
+            alpha_3d[mask_core] = np.maximum(alpha_3d[mask_core], protection_factor)
             
         # Alpha blend: out = fg * alpha + bg * (1 - alpha)
         composited = fg_img.astype(np.float32) * alpha_3d + bg_img.astype(np.float32) * (1.0 - alpha_3d)
