@@ -16,9 +16,11 @@ class ONNXInferenceEngine:
     
     MODEL_URLS = {
         "depth_anything": "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model.onnx", # 97 MB
-        "gfpgan": "https://huggingface.co/Gourieff/ReActor/resolve/main/models/facerestore_models/GFPGANv1.4.onnx",     # 140 MB
-        "realesrgan": "https://huggingface.co/sberbank-ai/Real-ESRGAN/resolve/main/RealESRGAN_x2.onnx"                  # 67 MB
+        "gfpgan": "https://huggingface.co/hacksider/deep-live-cam/resolve/main/GFPGANv1.4.onnx",                       # 140 MB
+        "realesrgan": "https://huggingface.co/tidus2102/Real-ESRGAN/resolve/main/Real-ESRGAN_x2plus.onnx"                # 67 MB
     }
+    
+    _failed_models = set()
     
     @classmethod
     def get_model_path(cls, model_key: str) -> str:
@@ -60,6 +62,9 @@ class ONNXInferenceEngine:
     @classmethod
     def get_session(cls, model_key: str):
         """Initializes and returns an ONNX Runtime inference session."""
+        if model_key in cls._failed_models:
+            print(f"[ONNX Engine] Skipping {model_key} session loading due to previous failures in this run.")
+            return None
         try:
             import onnxruntime as ort
             model_path = cls.get_model_path(model_key)
@@ -71,6 +76,7 @@ class ONNXInferenceEngine:
             return session
         except Exception as e:
             print(f"[ONNX Engine] Error loading {model_key} session: {e}")
+            cls._failed_models.add(model_key)
             return None
 
     @classmethod
